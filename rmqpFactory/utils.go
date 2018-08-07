@@ -6,37 +6,24 @@ import (
 
 )
 type rmqConn struct {
-	Conn *amqp.Connection
-	Channel *amqp.Channel
+	conn *amqp.Connection
+	channel *amqp.Channel
 }
 
-var connection rmqConn
+// var connection rmqConn
 
-func GetNewRMQConn() rmqConn {
-	// connection.getNewConnection()
-	// connection.getNewChannel()
-	rmqUrl, defaultUrl := os.LookupEnv("CLOUDAMQP_URL")
-	if !defaultUrl {
-		rmqUrl = "amqp://"
-	}
-	conn, err := amqp.Dial(rmqUrl)
-	if err != nil {
-		panic("cannot connect")
-	}
-	failOnError(err, "Failed to connect to RabbitMQ")
-	ch, err := conn.Channel()
-	failOnError(err, "Failed to open a channel")
-	connection := rmqConn{conn,ch}
-	
+func GetNewRMQConn() (connection rmqConn) {
+	connection.getNewConnection()
+	connection.getNewChannel()
 	return connection
 }
 
 func (rmq rmqConn) GetConnection() *amqp.Connection {
-	return rmq.Conn
+	return rmq.conn
 }
 
 func (rmq rmqConn) GetChannel()*amqp.Channel {
-	return rmq.Channel
+	return rmq.channel
 }
 
 func (rmq rmqConn) getNewConnection() {
@@ -45,7 +32,7 @@ func (rmq rmqConn) getNewConnection() {
 		rmqUrl = "amqp://"
 	}
 	var err error
-	rmq.Conn, err = amqp.Dial(rmqUrl)
+	rmq.conn, err = amqp.Dial(rmqUrl)
 	if err != nil {
 		panic("cannot connect")
 	}
@@ -53,6 +40,23 @@ func (rmq rmqConn) getNewConnection() {
 
 func (rmq rmqConn) getNewChannel() {
 	var err error
-	rmq.Channel, err = rmq.Conn.Channel()
+	rmq.channel, err = rmq.conn.Channel()
 	failOnError(err, "Failed to open a channel")
+	exName, ok := os.LookupEnv("EXCHANGE_NAME") 
+	if !ok {
+		exName = "common-exchange"
+	}
+	err = rmq.channel.ExchangeDeclare(
+		exName,			// name
+		"direct",	// type
+		true,			// durable
+		false,		// auto-deleted
+		false,		// internal
+		false,		// no-wait
+		nil,			// arguments
+	)
+
+	if err!=nil{
+		panic(err)
+	}
 }
